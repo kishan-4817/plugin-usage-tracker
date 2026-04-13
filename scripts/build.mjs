@@ -18,6 +18,10 @@ function shouldSkip( relativePath ) {
 	const normalized = relativePath.replaceAll( '\\', '/' ).toLowerCase();
 
 	return (
+		normalized === '.git' ||
+		normalized.startsWith( '.git/' ) ||
+		normalized.includes( '/.git/' ) ||
+		normalized.endsWith( '/.git' ) ||
 		normalized.includes( '/tests/' ) ||
 		normalized.startsWith( 'tests/' ) ||
 		normalized.includes( '/test/' ) ||
