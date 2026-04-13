@@ -3,14 +3,16 @@
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-	const scanButton = document.querySelector('.put-actions .button-primary');
+	const busyButtons = document.querySelectorAll('.put-scan-form button');
 
-	if (!scanButton) {
+	if (!busyButtons.length) {
 		return;
 	}
 
-	scanButton.addEventListener('click', () => {
-		scanButton.classList.add('is-busy');
-		scanButton.setAttribute('aria-busy', 'true');
+	busyButtons.forEach((button) => {
+		button.addEventListener('click', () => {
+			button.classList.add('is-busy');
+			button.setAttribute('aria-busy', 'true');
+		});
 	});
 });

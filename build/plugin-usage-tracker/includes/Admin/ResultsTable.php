@@ -206,8 +206,9 @@ final class ResultsTable extends \WP_List_Table {
 	 * @return string
 	 */
 	private function render_signals( array $item ): string {
-		$signals = isset( $item['signals'] ) && is_array( $item['signals'] ) ? $item['signals'] : array();
-		$parts   = array();
+		$signals         = isset( $item['signals'] ) && is_array( $item['signals'] ) ? $item['signals'] : array();
+		$runtime_capture = isset( $item['runtime_capture'] ) && is_array( $item['runtime_capture'] ) ? $item['runtime_capture'] : array();
+		$parts           = array();
 
 		$parts[] = sprintf(
 			/* translators: %d = file count. */
@@ -225,6 +226,14 @@ final class ResultsTable extends \WP_List_Table {
 				__( '%1$s: %2$d', 'plugin-usage-tracker' ),
 				ucfirst( str_replace( '_', ' ', $key ) ),
 				count( $signals[ $key ] )
+			);
+		}
+
+		if ( ! empty( $runtime_capture['hook_count'] ) ) {
+			$parts[] = sprintf(
+				/* translators: %d = runtime hook count. */
+				__( 'Runtime hooks: %d', 'plugin-usage-tracker' ),
+				absint( $runtime_capture['hook_count'] )
 			);
 		}
 

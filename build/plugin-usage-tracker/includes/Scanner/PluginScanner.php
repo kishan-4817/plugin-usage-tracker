@@ -9,6 +9,7 @@ namespace PluginUsageTracker\Scanner;
 
 use PluginUsageTracker\Data\ResultsStore;
 use PluginUsageTracker\Data\SettingsStore;
+use PluginUsageTracker\Scanner\RuntimeObserver;
 
 /**
  * Scan installed plugins and score usage.
@@ -44,6 +45,13 @@ final class PluginScanner {
 	private SettingsStore $settings_store;
 
 	/**
+	 * Runtime observer.
+	 *
+	 * @var RuntimeObserver
+	 */
+	private RuntimeObserver $runtime_observer;
+
+	/**
 	 * Constructor.
 	 */
 	public function __construct() {
@@ -51,6 +59,7 @@ final class PluginScanner {
 		$this->content_analyzer = new ContentAnalyzer();
 		$this->results_store    = new ResultsStore();
 		$this->settings_store   = new SettingsStore();
+		$this->runtime_observer = new RuntimeObserver();
 	}
 
 	/**
@@ -62,6 +71,7 @@ final class PluginScanner {
 		$this->load_plugin_api();
 
 		$installed_plugins = get_plugins();
+		$runtime_capture   = $this->runtime_observer->get_capture();
 		$results           = array();
 
 		foreach ( $installed_plugins as $plugin_file => $plugin_data ) {
@@ -79,6 +89,7 @@ final class PluginScanner {
 				$plugin_data,
 				$static_analysis,
 				$content_analysis,
+				$runtime_capture,
 				$is_active,
 				$override_needed
 			);
@@ -137,6 +148,7 @@ final class PluginScanner {
 	 * @param array<string, mixed> $plugin_data Plugin header data.
 	 * @param array<string, mixed> $static_analysis Static analysis payload.
 	 * @param array<string, mixed> $content_analysis Content analysis payload.
+	 * @param array<string, mixed> $runtime_capture Runtime capture payload.
 	 * @param bool                 $is_active Whether the plugin is active.
 	 * @param bool                 $override_needed Whether the plugin is manually marked needed.
 	 * @return array<string, mixed>
@@ -146,11 +158,14 @@ final class PluginScanner {
 		array $plugin_data,
 		array $static_analysis,
 		array $content_analysis,
+		array $runtime_capture,
 		bool $is_active,
 		bool $override_needed
 	): array {
-		$signals = isset( $static_analysis['signals'] ) && is_array( $static_analysis['signals'] ) ? $static_analysis['signals'] : array();
-		$usage   = isset( $content_analysis['usage'] ) && is_array( $content_analysis['usage'] ) ? $content_analysis['usage'] : array();
+		$signals       = isset( $static_analysis['signals'] ) && is_array( $static_analysis['signals'] ) ? $static_analysis['signals'] : array();
+		$usage         = isset( $content_analysis['usage'] ) && is_array( $content_analysis['usage'] ) ? $content_analysis['usage'] : array();
+		$runtime_hooks = isset( $runtime_capture['hooks'] ) && is_array( $runtime_capture['hooks'] ) ? $runtime_capture['hooks'] : array();
+		$runtime_hits  = $this->intersect_signals( isset( $signals['hooks'] ) && is_array( $signals['hooks'] ) ? $signals['hooks'] : array(), $runtime_hooks );
 
 		$score = $is_active ? 45 : 20;
 		$notes = array();
@@ -166,6 +181,14 @@ final class PluginScanner {
 		} else {
 			$score  -= 10;
 			$notes[] = __( 'No obvious hooks found in the source scan.', 'plugin-usage-tracker' );
+		}
+
+		if ( ! empty( $runtime_hits ) ) {
+			$score  += 20;
+			$notes[] = __( 'Runtime test observed plugin-related hooks.', 'plugin-usage-tracker' );
+		} elseif ( ! empty( $runtime_hooks ) ) {
+			$score  -= 5;
+			$notes[] = __( 'Runtime test ran but no matching hooks were observed.', 'plugin-usage-tracker' );
 		}
 
 		if ( ! empty( $signals['shortcodes'] ) ) {
@@ -238,6 +261,8 @@ final class PluginScanner {
 			'confidence_label' => $this->score_to_label( $score, $override_needed ),
 			'signals'          => $signals,
 			'content_usage'    => $usage,
+			'runtime_capture'  => $runtime_capture,
+			'runtime_hits'     => $runtime_hits,
 			'notes'            => array_values( array_unique( $notes ) ),
 			'file_count'       => isset( $static_analysis['file_count'] ) ? (int) $static_analysis['file_count'] : 0,
 		);
@@ -306,5 +331,24 @@ final class PluginScanner {
 		}
 
 		return 'likely-unused';
+	}
+
+	/**
+	 * Find matching hooks between static and runtime signal sets.
+	 *
+	 * @param array<int, string> $static_hooks Static hooks.
+	 * @param array<int, string> $runtime_hooks Runtime hooks.
+	 * @return array<int, string>
+	 */
+	private function intersect_signals( array $static_hooks, array $runtime_hooks ): array {
+		$matches = array();
+
+		foreach ( array_map( 'strval', $static_hooks ) as $hook ) {
+			if ( in_array( $hook, array_map( 'strval', $runtime_hooks ), true ) ) {
+				$matches[] = $hook;
+			}
+		}
+
+		return array_values( array_unique( $matches ) );
 	}
 }

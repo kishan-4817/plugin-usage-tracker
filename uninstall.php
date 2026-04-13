@@ -22,3 +22,4 @@ delete_option( 'put_activated_at' );
 
 // Remove transients.
 delete_transient( 'put_runtime_hooks' );
+delete_transient( 'put_runtime_hooks_token' );

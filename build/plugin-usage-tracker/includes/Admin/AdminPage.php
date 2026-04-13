@@ -9,6 +9,7 @@ namespace PluginUsageTracker\Admin;
 
 use PluginUsageTracker\Data\ResultsStore;
 use PluginUsageTracker\Data\SettingsStore;
+use PluginUsageTracker\Scanner\RuntimeObserver;
 use PluginUsageTracker\Scanner\PluginScanner;
 
 /**
@@ -48,12 +49,20 @@ final class AdminPage {
 	private PluginScanner $scanner;
 
 	/**
+	 * Runtime observer.
+	 *
+	 * @var RuntimeObserver
+	 */
+	private RuntimeObserver $runtime_observer;
+
+	/**
 	 * Constructor.
 	 */
 	public function __construct() {
-		$this->results_store  = new ResultsStore();
-		$this->settings_store = new SettingsStore();
-		$this->scanner        = new PluginScanner();
+		$this->results_store    = new ResultsStore();
+		$this->settings_store   = new SettingsStore();
+		$this->scanner          = new PluginScanner();
+		$this->runtime_observer = new RuntimeObserver();
 	}
 
 	/**
@@ -65,6 +74,7 @@ final class AdminPage {
 		add_action( 'admin_menu', array( $this, 'add_menu_page' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 		add_action( 'admin_post_put_run_scan', array( $this, 'handle_run_scan' ) );
+		add_action( 'admin_post_put_run_runtime_test', array( $this, 'handle_run_runtime_test' ) );
 		add_action( 'admin_post_put_toggle_override', array( $this, 'handle_toggle_override' ) );
 		add_action( 'admin_post_put_export_results', array( $this, 'handle_export_results' ) );
 	}
@@ -130,6 +140,46 @@ final class AdminPage {
 				array(
 					'page'       => self::MENU_SLUG,
 					'put_notice' => 'scan_complete',
+				),
+				admin_url( 'tools.php' )
+			)
+		);
+		exit;
+	}
+
+	/**
+	 * Run a runtime hook capture against the front end.
+	 *
+	 * @return void
+	 */
+	public function handle_run_runtime_test(): void {
+		if ( ! current_user_can( self::CAPABILITY ) ) {
+			wp_die( esc_html__( 'You do not have permission to run runtime tests.', 'plugin-usage-tracker' ) );
+		}
+
+		check_admin_referer( 'put_run_runtime_test' );
+
+		$token = wp_generate_password( 24, false, false );
+		$this->runtime_observer->set_token( $token );
+
+		$response = wp_remote_get(
+			$this->runtime_observer->build_capture_url( home_url( '/' ), $token ),
+			array(
+				'timeout'     => 30,
+				'blocking'    => true,
+				'redirection' => 0,
+			)
+		);
+
+		if ( is_wp_error( $response ) ) {
+			wp_die( esc_html( $response->get_error_message() ) );
+		}
+
+		wp_safe_redirect(
+			add_query_arg(
+				array(
+					'page'       => self::MENU_SLUG,
+					'put_notice' => 'runtime_test_complete',
 				),
 				admin_url( 'tools.php' )
 			)
@@ -210,6 +260,7 @@ final class AdminPage {
 
 		$results         = $this->results_store->get_latest_scan();
 		$summary         = isset( $results['summary'] ) && is_array( $results['summary'] ) ? $results['summary'] : array();
+		$runtime_capture = $this->runtime_observer->get_capture();
 		$export_json_url = wp_nonce_url(
 			add_query_arg(
 				array(
@@ -233,12 +284,17 @@ final class AdminPage {
 		?>
 		<div class="wrap put-wrap">
 			<div class="put-hero">
-				<div>
+				<div class="put-hero-copy">
 					<p class="put-eyebrow"><?php esc_html_e( 'Plugin Usage Tracker', 'plugin-usage-tracker' ); ?></p>
-					<h1><?php esc_html_e( 'Installed plugin usage dashboard', 'plugin-usage-tracker' ); ?></h1>
+					<h1><?php esc_html_e( 'See which plugins are actually carrying weight.', 'plugin-usage-tracker' ); ?></h1>
 					<p class="put-description">
-						<?php esc_html_e( 'Run a scan to surface which installed plugins appear active, inactive, or unclear based on file, content, and registration signals.', 'plugin-usage-tracker' ); ?>
+						<?php esc_html_e( 'Static code signals, content usage, and a runtime hook capture work together to separate active value from quiet bloat.', 'plugin-usage-tracker' ); ?>
 					</p>
+					<div class="put-hero-points">
+						<span><?php esc_html_e( 'Static scan', 'plugin-usage-tracker' ); ?></span>
+						<span><?php esc_html_e( 'Content usage', 'plugin-usage-tracker' ); ?></span>
+						<span><?php esc_html_e( 'Runtime test', 'plugin-usage-tracker' ); ?></span>
+					</div>
 				</div>
 
 				<div class="put-hero-actions">
@@ -249,10 +305,32 @@ final class AdminPage {
 							<?php esc_html_e( 'Run Scan', 'plugin-usage-tracker' ); ?>
 						</button>
 					</form>
+					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="put-scan-form">
+						<input type="hidden" name="action" value="put_run_runtime_test" />
+						<?php wp_nonce_field( 'put_run_runtime_test' ); ?>
+						<button type="submit" class="button button-secondary">
+							<?php esc_html_e( 'Run Runtime Test', 'plugin-usage-tracker' ); ?>
+						</button>
+					</form>
 					<div class="put-export-actions">
 						<a class="button" href="<?php echo esc_url( $export_json_url ); ?>"><?php esc_html_e( 'Export JSON', 'plugin-usage-tracker' ); ?></a>
 						<a class="button" href="<?php echo esc_url( $export_csv_url ); ?>"><?php esc_html_e( 'Export CSV', 'plugin-usage-tracker' ); ?></a>
 					</div>
+				</div>
+			</div>
+
+			<div class="put-snapshot-strip">
+				<div class="put-snapshot-item">
+					<span class="put-snapshot-label"><?php esc_html_e( 'Plugins scanned', 'plugin-usage-tracker' ); ?></span>
+					<strong><?php echo esc_html( (string) absint( isset( $summary['total'] ) ? $summary['total'] : 0 ) ); ?></strong>
+				</div>
+				<div class="put-snapshot-item">
+					<span class="put-snapshot-label"><?php esc_html_e( 'Runtime hooks', 'plugin-usage-tracker' ); ?></span>
+					<strong><?php echo esc_html( (string) absint( isset( $runtime_capture['hook_count'] ) ? $runtime_capture['hook_count'] : 0 ) ); ?></strong>
+				</div>
+				<div class="put-snapshot-item">
+					<span class="put-snapshot-label"><?php esc_html_e( 'Last test', 'plugin-usage-tracker' ); ?></span>
+					<strong><?php echo esc_html( ! empty( $runtime_capture['captured_at'] ) ? (string) $runtime_capture['captured_at'] : __( 'Not run yet', 'plugin-usage-tracker' ) ); ?></strong>
 				</div>
 			</div>
 
@@ -300,6 +378,16 @@ final class AdminPage {
 				</div>
 			<?php endif; ?>
 
+			<?php if ( ! empty( $runtime_capture['hooks'] ) && is_array( $runtime_capture['hooks'] ) ) : ?>
+				<div class="put-runtime-panel">
+					<h2><?php esc_html_e( 'Runtime snapshot', 'plugin-usage-tracker' ); ?></h2>
+					<p><?php esc_html_e( 'This request captured hooks from a live front-end pass. Matching hooks are fed back into scoring.', 'plugin-usage-tracker' ); ?></p>
+					<p class="put-runtime-list">
+						<?php echo esc_html( implode( ', ', array_slice( array_map( 'strval', $runtime_capture['hooks'] ), 0, 10 ) ) ); ?>
+					</p>
+				</div>
+			<?php endif; ?>
+
 			<div class="put-settings-link">
 				<a href="<?php echo esc_url( menu_page_url( SettingsPage::MENU_SLUG, false ) ); ?>"><?php esc_html_e( 'Open settings', 'plugin-usage-tracker' ); ?></a>
 			</div>
@@ -321,9 +409,10 @@ final class AdminPage {
 		}
 
 		$messages = array(
-			'scan_complete'    => __( 'Scan completed successfully.', 'plugin-usage-tracker' ),
-			'override_added'   => __( 'The plugin has been marked as needed.', 'plugin-usage-tracker' ),
-			'override_removed' => __( 'The manual override was removed.', 'plugin-usage-tracker' ),
+			'scan_complete'         => __( 'Scan completed successfully.', 'plugin-usage-tracker' ),
+			'runtime_test_complete' => __( 'Runtime test completed successfully.', 'plugin-usage-tracker' ),
+			'override_added'        => __( 'The plugin has been marked as needed.', 'plugin-usage-tracker' ),
+			'override_removed'      => __( 'The manual override was removed.', 'plugin-usage-tracker' ),
 		);
 
 		if ( ! isset( $messages[ $notice ] ) ) {

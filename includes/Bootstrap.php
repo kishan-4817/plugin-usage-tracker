@@ -11,6 +11,7 @@ use PluginUsageTracker\Admin\AdminPage;
 use PluginUsageTracker\Admin\SettingsPage;
 use PluginUsageTracker\CLI\Command as CliCommand;
 use PluginUsageTracker\Data\SettingsStore;
+use PluginUsageTracker\Scanner\RuntimeObserver;
 
 /**
  * Bootstrap
@@ -90,6 +91,9 @@ final class Bootstrap {
 			$settings_page = new SettingsPage();
 			$settings_page->register();
 		}
+
+		$runtime_observer = new RuntimeObserver();
+		$runtime_observer->register();
 
 		$settings = ( new SettingsStore() )->all();
 
