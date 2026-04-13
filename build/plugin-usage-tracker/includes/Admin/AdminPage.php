@@ -101,7 +101,7 @@ final class AdminPage {
 	 * @return void
 	 */
 	public function enqueue_assets( string $hook_suffix ): void {
-		if ( 'tools_page_' . self::MENU_SLUG !== $hook_suffix && 'tools_page_' . SettingsPage::MENU_SLUG !== $hook_suffix ) {
+		if ( 'tools_page_' . self::MENU_SLUG !== $hook_suffix ) {
 			return;
 		}
 
@@ -261,6 +261,7 @@ final class AdminPage {
 		$results         = $this->results_store->get_latest_scan();
 		$summary         = isset( $results['summary'] ) && is_array( $results['summary'] ) ? $results['summary'] : array();
 		$runtime_capture = $this->runtime_observer->get_capture();
+		$settings        = $this->settings_store->all();
 		$export_json_url = wp_nonce_url(
 			add_query_arg(
 				array(
@@ -336,60 +337,119 @@ final class AdminPage {
 
 			<?php $this->render_notices(); ?>
 
-			<?php if ( empty( $results ) || empty( $results['plugins'] ) ) : ?>
-				<div class="put-empty-state">
-					<h2><?php esc_html_e( 'No scan results yet', 'plugin-usage-tracker' ); ?></h2>
-					<p>
-						<?php esc_html_e( 'Start with a scan to collect plugin signals. The first pass focuses on static code analysis and content usage checks.', 'plugin-usage-tracker' ); ?>
-					</p>
-				</div>
-			<?php else : ?>
-				<div class="put-summary-grid">
-					<?php
-					$this->render_summary_card( __( 'Total plugins', 'plugin-usage-tracker' ), isset( $summary['total'] ) ? absint( $summary['total'] ) : 0 );
-					$this->render_summary_card( __( 'Likely used', 'plugin-usage-tracker' ), isset( $summary['likely-used'] ) ? absint( $summary['likely-used'] ) : 0 );
-					$this->render_summary_card( __( 'Possibly unused', 'plugin-usage-tracker' ), isset( $summary['possibly-unused'] ) ? absint( $summary['possibly-unused'] ) : 0 );
-					$this->render_summary_card( __( 'Likely unused', 'plugin-usage-tracker' ), isset( $summary['likely-unused'] ) ? absint( $summary['likely-unused'] ) : 0 );
-					?>
-				</div>
-
-				<div class="put-results">
-					<div class="put-results-header">
-						<div>
-							<h2><?php esc_html_e( 'Scan results', 'plugin-usage-tracker' ); ?></h2>
-							<?php if ( ! empty( $results['generated_at'] ) ) : ?>
-								<p class="put-results-meta">
-									<?php
-									printf(
-										/* translators: %s = date string */
-										esc_html__( 'Last scanned %s', 'plugin-usage-tracker' ),
-										esc_html( (string) $results['generated_at'] )
-									);
-									?>
-								</p>
-							<?php endif; ?>
+			<div class="put-dashboard-grid">
+				<div class="put-main-column">
+					<?php if ( empty( $results ) || empty( $results['plugins'] ) ) : ?>
+						<div class="put-empty-state">
+							<h2><?php esc_html_e( 'No scan results yet', 'plugin-usage-tracker' ); ?></h2>
+							<p>
+								<?php esc_html_e( 'Start with a scan to collect plugin signals. The first pass focuses on static code analysis and content usage checks.', 'plugin-usage-tracker' ); ?>
+							</p>
 						</div>
+					<?php else : ?>
+						<div class="put-summary-grid">
+							<?php
+							$this->render_summary_card( __( 'Total plugins', 'plugin-usage-tracker' ), isset( $summary['total'] ) ? absint( $summary['total'] ) : 0 );
+							$this->render_summary_card( __( 'Likely used', 'plugin-usage-tracker' ), isset( $summary['likely-used'] ) ? absint( $summary['likely-used'] ) : 0 );
+							$this->render_summary_card( __( 'Possibly unused', 'plugin-usage-tracker' ), isset( $summary['possibly-unused'] ) ? absint( $summary['possibly-unused'] ) : 0 );
+							$this->render_summary_card( __( 'Likely unused', 'plugin-usage-tracker' ), isset( $summary['likely-unused'] ) ? absint( $summary['likely-unused'] ) : 0 );
+							?>
+						</div>
+
+						<div class="put-results">
+							<div class="put-results-header">
+								<div>
+									<h2><?php esc_html_e( 'Scan results', 'plugin-usage-tracker' ); ?></h2>
+									<?php if ( ! empty( $results['generated_at'] ) ) : ?>
+										<p class="put-results-meta">
+											<?php
+											printf(
+												/* translators: %s = date string */
+												esc_html__( 'Last scanned %s', 'plugin-usage-tracker' ),
+												esc_html( (string) $results['generated_at'] )
+											);
+											?>
+										</p>
+									<?php endif; ?>
+								</div>
+							</div>
+							<?php
+							$table = new ResultsTable( $results, $this->results_store );
+							$table->prepare_items();
+							$table->display();
+							?>
+						</div>
+					<?php endif; ?>
+
+					<?php if ( ! empty( $runtime_capture['hooks'] ) && is_array( $runtime_capture['hooks'] ) ) : ?>
+						<div class="put-runtime-panel">
+							<h2><?php esc_html_e( 'Runtime snapshot', 'plugin-usage-tracker' ); ?></h2>
+							<p><?php esc_html_e( 'This request captured hooks from a live front-end pass. Matching hooks are fed back into scoring.', 'plugin-usage-tracker' ); ?></p>
+							<p class="put-runtime-list">
+								<?php echo esc_html( implode( ', ', array_slice( array_map( 'strval', $runtime_capture['hooks'] ), 0, 10 ) ) ); ?>
+							</p>
+						</div>
+					<?php endif; ?>
+				</div>
+
+				<aside class="put-sidebar">
+					<div class="put-sidebar-panel">
+						<h2><?php esc_html_e( 'Quick controls', 'plugin-usage-tracker' ); ?></h2>
+						<p><?php esc_html_e( 'Tune the scan without leaving this screen.', 'plugin-usage-tracker' ); ?></p>
+
+						<form method="post" action="options.php" class="put-settings-form">
+							<?php settings_fields( 'put_settings_group' ); ?>
+
+							<label for="put-exclude-plugins"><?php esc_html_e( 'Excluded plugin files', 'plugin-usage-tracker' ); ?></label>
+							<textarea id="put-exclude-plugins" name="<?php echo esc_attr( SettingsStore::OPTION_KEY ); ?>[exclude_plugins_text]" rows="5" class="large-text code"><?php echo esc_textarea( implode( PHP_EOL, isset( $settings['exclude_plugins'] ) && is_array( $settings['exclude_plugins'] ) ? $settings['exclude_plugins'] : array() ) ); ?></textarea>
+
+							<label for="put-retention-days"><?php esc_html_e( 'Retention days', 'plugin-usage-tracker' ); ?></label>
+							<input
+								type="number"
+								min="1"
+								id="put-retention-days"
+								name="<?php echo esc_attr( SettingsStore::OPTION_KEY ); ?>[retain_results_days]"
+								value="<?php echo esc_attr( (string) ( isset( $settings['retain_results_days'] ) ? absint( $settings['retain_results_days'] ) : 30 ) ); ?>"
+								class="small-text"
+							/>
+
+							<p>
+								<label>
+									<input
+										type="checkbox"
+										name="<?php echo esc_attr( SettingsStore::OPTION_KEY ); ?>[show_likely_used]"
+										value="1"
+										<?php checked( ! empty( $settings['show_likely_used'] ) ); ?>
+									/>
+									<?php esc_html_e( 'Show likely used plugins', 'plugin-usage-tracker' ); ?>
+								</label>
+							</p>
+
+							<p>
+								<label>
+									<input
+										type="checkbox"
+										name="<?php echo esc_attr( SettingsStore::OPTION_KEY ); ?>[enable_cli]"
+										value="1"
+										<?php checked( ! empty( $settings['enable_cli'] ) ); ?>
+									/>
+									<?php esc_html_e( 'Enable WP-CLI commands', 'plugin-usage-tracker' ); ?>
+								</label>
+							</p>
+
+							<?php submit_button( __( 'Save preferences', 'plugin-usage-tracker' ), 'secondary', 'submit', false ); ?>
+						</form>
 					</div>
-					<?php
-					$table = new ResultsTable( $results, $this->results_store );
-					$table->prepare_items();
-					$table->display();
-					?>
-				</div>
-			<?php endif; ?>
 
-			<?php if ( ! empty( $runtime_capture['hooks'] ) && is_array( $runtime_capture['hooks'] ) ) : ?>
-				<div class="put-runtime-panel">
-					<h2><?php esc_html_e( 'Runtime snapshot', 'plugin-usage-tracker' ); ?></h2>
-					<p><?php esc_html_e( 'This request captured hooks from a live front-end pass. Matching hooks are fed back into scoring.', 'plugin-usage-tracker' ); ?></p>
-					<p class="put-runtime-list">
-						<?php echo esc_html( implode( ', ', array_slice( array_map( 'strval', $runtime_capture['hooks'] ), 0, 10 ) ) ); ?>
-					</p>
-				</div>
-			<?php endif; ?>
-
-			<div class="put-settings-link">
-				<a href="<?php echo esc_url( menu_page_url( SettingsPage::MENU_SLUG, false ) ); ?>"><?php esc_html_e( 'Open settings', 'plugin-usage-tracker' ); ?></a>
+					<div class="put-sidebar-panel">
+						<h2><?php esc_html_e( 'What this measures', 'plugin-usage-tracker' ); ?></h2>
+						<ul class="put-sidebar-list">
+							<li><?php esc_html_e( 'Static hooks, shortcodes, blocks, and post types.', 'plugin-usage-tracker' ); ?></li>
+							<li><?php esc_html_e( 'Content usage inside posts and blocks.', 'plugin-usage-tracker' ); ?></li>
+							<li><?php esc_html_e( 'A runtime hook capture from a live front-end request.', 'plugin-usage-tracker' ); ?></li>
+						</ul>
+					</div>
+				</aside>
 			</div>
 		</div>
 		<?php
@@ -413,6 +473,7 @@ final class AdminPage {
 			'runtime_test_complete' => __( 'Runtime test completed successfully.', 'plugin-usage-tracker' ),
 			'override_added'        => __( 'The plugin has been marked as needed.', 'plugin-usage-tracker' ),
 			'override_removed'      => __( 'The manual override was removed.', 'plugin-usage-tracker' ),
+			'settings_saved'        => __( 'Preferences saved.', 'plugin-usage-tracker' ),
 		);
 
 		if ( ! isset( $messages[ $notice ] ) ) {

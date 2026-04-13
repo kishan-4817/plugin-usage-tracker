@@ -27,11 +27,10 @@ body[class*="plugin-usage-tracker"] {
 
 .put-hero {
 	align-items: flex-start;
-	background:
-		linear-gradient(135deg, rgba(15, 23, 42, 0.96) 0%, rgba(30, 64, 175, 0.92) 100%);
-	border: 1px solid rgba(15, 23, 42, 0.1);
+	background: #fff;
+	border: 1px solid rgba(15, 23, 42, 0.08);
 	border-radius: 28px;
-	box-shadow: 0 24px 70px rgba(15, 23, 42, 0.18);
+	box-shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
 	display: flex;
 	gap: 24px;
 	justify-content: space-between;
@@ -42,10 +41,9 @@ body[class*="plugin-usage-tracker"] {
 }
 
 .put-hero::after {
-	background:
-		radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.16), transparent 22%),
-		radial-gradient(circle at 82% 22%, rgba(96, 165, 250, 0.22), transparent 24%);
+	background: linear-gradient(180deg, rgba(29, 78, 216, 0.1), transparent 42%);
 	content: '';
+	height: 5px;
 	inset: 0;
 	pointer-events: none;
 	position: absolute;
@@ -57,7 +55,7 @@ body[class*="plugin-usage-tracker"] {
 }
 
 .put-eyebrow {
-	color: #cbd5e1;
+	color: var(--put-accent);
 	font-size: 12px;
 	font-weight: 700;
 	letter-spacing: 0.12em;
@@ -66,7 +64,7 @@ body[class*="plugin-usage-tracker"] {
 }
 
 .put-hero h1 {
-	color: #fff;
+	color: var(--put-text);
 	font-size: clamp(30px, 3vw, 44px);
 	font-weight: 700;
 	line-height: 1.15;
@@ -75,7 +73,7 @@ body[class*="plugin-usage-tracker"] {
 }
 
 .put-description {
-	color: rgba(226, 232, 240, 0.86);
+	color: var(--put-muted);
 	font-size: 15px;
 	line-height: 1.7;
 	margin: 0;
@@ -94,10 +92,10 @@ body[class*="plugin-usage-tracker"] {
 }
 
 .put-hero-points span {
-	background: rgba(255, 255, 255, 0.12);
-	border: 1px solid rgba(255, 255, 255, 0.14);
+	background: rgba(29, 78, 216, 0.08);
+	border: 1px solid rgba(29, 78, 216, 0.12);
 	border-radius: 999px;
-	color: #fff;
+	color: var(--put-accent);
 	font-size: 12px;
 	font-weight: 600;
 	padding: 0.45rem 0.8rem;
@@ -134,7 +132,7 @@ body[class*="plugin-usage-tracker"] {
 }
 
 .put-snapshot-item {
-	background: rgba(255, 255, 255, 0.84);
+	background: #fff;
 	border: 1px solid rgba(15, 23, 42, 0.08);
 	border-radius: 18px;
 	box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
@@ -188,7 +186,7 @@ body[class*="plugin-usage-tracker"] {
 
 .put-empty-state,
 .put-results {
-	background: rgba(255, 255, 255, 0.88);
+	background: #fff;
 	border: 1px solid rgba(15, 23, 42, 0.08);
 	border-radius: 22px;
 	box-shadow: 0 16px 40px rgba(15, 23, 42, 0.05);
@@ -337,22 +335,67 @@ body[class*="plugin-usage-tracker"] {
 }
 
 .put-runtime-panel {
-	background: linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(29, 78, 216, 0.92));
+	background: linear-gradient(135deg, rgba(239, 246, 255, 0.96), rgba(255, 255, 255, 0.96));
+	border: 1px solid rgba(29, 78, 216, 0.14);
 	border-radius: 22px;
-	box-shadow: 0 24px 70px rgba(15, 23, 42, 0.12);
-	color: #e2e8f0;
+	box-shadow: 0 16px 40px rgba(15, 23, 42, 0.06);
+	color: var(--put-text);
 	margin-top: 24px;
 	padding: 24px;
 }
 
 .put-runtime-panel h2 {
-	color: #fff;
+	color: var(--put-text);
 }
 
 .put-runtime-list {
-	color: rgba(226, 232, 240, 0.82);
+	color: var(--put-muted);
 	line-height: 1.6;
 	margin: 0;
+}
+
+.put-dashboard-grid {
+	display: grid;
+	gap: 24px;
+	grid-template-columns: minmax(0, 1fr) 340px;
+}
+
+.put-main-column {
+	display: grid;
+	gap: 24px;
+}
+
+.put-sidebar {
+	display: grid;
+	gap: 16px;
+	align-content: start;
+}
+
+.put-sidebar-panel {
+	background: #fff;
+	border: 1px solid rgba(15, 23, 42, 0.08);
+	border-radius: 22px;
+	box-shadow: 0 16px 40px rgba(15, 23, 42, 0.05);
+	padding: 20px;
+}
+
+.put-sidebar-panel h2 {
+	margin-top: 0;
+}
+
+.put-sidebar-list {
+	color: var(--put-muted);
+	margin: 0;
+	padding-left: 18px;
+}
+
+.put-sidebar-list li + li {
+	margin-top: 0.55rem;
+}
+
+.put-settings-form {
+	display: grid;
+	gap: 0.9rem;
 }
 
 table.wp-list-table .column-plugin {
@@ -390,6 +433,10 @@ table.wp-list-table .column-override {
 	}
 
 	.put-settings-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.put-dashboard-grid {
 		grid-template-columns: 1fr;
 	}
 }
