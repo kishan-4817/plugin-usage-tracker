@@ -1,32 +1,51 @@
 <?php
 /**
- * Admin Page.
+ * Admin page.
  *
  * @package PluginUsageTracker\Admin
  */
 
 namespace PluginUsageTracker\Admin;
 
+use PluginUsageTracker\Data\ResultsStore;
+use PluginUsageTracker\Scanner\PluginScanner;
+
 /**
- * AdminPage
- *
- * Registers the Tools > Plugin Usage Tracker admin page.
+ * Register the plugin dashboard.
  */
-class AdminPage {
+final class AdminPage {
 
 	/**
 	 * Menu slug.
-	 *
-	 * @var string
 	 */
-	const MENU_SLUG = 'plugin-usage-tracker';
+	public const MENU_SLUG = 'plugin-usage-tracker';
 
 	/**
 	 * Required capability.
-	 *
-	 * @var string
 	 */
-	const CAPABILITY = 'manage_options';
+	public const CAPABILITY = 'manage_options';
+
+	/**
+	 * Results store.
+	 *
+	 * @var ResultsStore
+	 */
+	private ResultsStore $results_store;
+
+	/**
+	 * Scanner.
+	 *
+	 * @var PluginScanner
+	 */
+	private PluginScanner $scanner;
+
+	/**
+	 * Constructor.
+	 */
+	public function __construct() {
+		$this->results_store = new ResultsStore();
+		$this->scanner       = new PluginScanner();
+	}
 
 	/**
 	 * Register admin hooks.
@@ -36,10 +55,12 @@ class AdminPage {
 	public function register(): void {
 		add_action( 'admin_menu', array( $this, 'add_menu_page' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
+		add_action( 'admin_post_put_run_scan', array( $this, 'handle_run_scan' ) );
+		add_action( 'admin_post_put_toggle_override', array( $this, 'handle_toggle_override' ) );
 	}
 
 	/**
-	 * Add page under Tools menu.
+	 * Add page under Tools.
 	 *
 	 * @return void
 	 */
@@ -54,9 +75,9 @@ class AdminPage {
 	}
 
 	/**
-	 * Enqueue admin assets only on our page.
+	 * Enqueue admin assets.
 	 *
-	 * @param string $hook_suffix Current admin page hook suffix.
+	 * @param string $hook_suffix Hook suffix.
 	 * @return void
 	 */
 	public function enqueue_assets( string $hook_suffix ): void {
@@ -81,7 +102,66 @@ class AdminPage {
 	}
 
 	/**
-	 * Render the admin page.
+	 * Handle scan requests.
+	 *
+	 * @return void
+	 */
+	public function handle_run_scan(): void {
+		if ( ! current_user_can( self::CAPABILITY ) ) {
+			wp_die( esc_html__( 'You do not have permission to run scans.', 'plugin-usage-tracker' ) );
+		}
+
+		check_admin_referer( 'put_run_scan' );
+
+		$this->scanner->scan();
+
+		wp_safe_redirect(
+			add_query_arg(
+				array(
+					'page'       => self::MENU_SLUG,
+					'put_notice' => 'scan_complete',
+				),
+				admin_url( 'tools.php' )
+			)
+		);
+		exit;
+	}
+
+	/**
+	 * Toggle manual needed override.
+	 *
+	 * @return void
+	 */
+	public function handle_toggle_override(): void {
+		if ( ! current_user_can( self::CAPABILITY ) ) {
+			wp_die( esc_html__( 'You do not have permission to update overrides.', 'plugin-usage-tracker' ) );
+		}
+
+		$plugin_file = isset( $_GET['plugin'] ) ? rawurldecode( sanitize_text_field( wp_unslash( $_GET['plugin'] ) ) ) : '';
+		$needed      = isset( $_GET['needed'] ) ? '1' === sanitize_text_field( wp_unslash( $_GET['needed'] ) ) : false;
+
+		if ( '' === $plugin_file ) {
+			wp_die( esc_html__( 'Missing plugin file.', 'plugin-usage-tracker' ) );
+		}
+
+		check_admin_referer( 'put_toggle_override_' . $plugin_file );
+
+		$this->results_store->set_needed( $plugin_file, $needed );
+
+		wp_safe_redirect(
+			add_query_arg(
+				array(
+					'page'       => self::MENU_SLUG,
+					'put_notice' => $needed ? 'override_added' : 'override_removed',
+				),
+				admin_url( 'tools.php' )
+			)
+		);
+		exit;
+	}
+
+	/**
+	 * Render the page.
 	 *
 	 * @return void
 	 */
@@ -90,22 +170,118 @@ class AdminPage {
 			wp_die( esc_html__( 'You do not have permission to view this page.', 'plugin-usage-tracker' ) );
 		}
 
+		$results = $this->results_store->get_latest_scan();
+		$summary = isset( $results['summary'] ) && is_array( $results['summary'] ) ? $results['summary'] : array();
 		?>
 		<div class="wrap put-wrap">
-			<h1><?php esc_html_e( 'Plugin Usage Tracker', 'plugin-usage-tracker' ); ?></h1>
-			<p class="put-description">
-				<?php esc_html_e( 'Scan your active plugins and identify ones that may not be contributing to your site.', 'plugin-usage-tracker' ); ?>
-			</p>
+			<div class="put-hero">
+				<div>
+					<p class="put-eyebrow"><?php esc_html_e( 'Plugin Usage Tracker', 'plugin-usage-tracker' ); ?></p>
+					<h1><?php esc_html_e( 'Installed plugin usage dashboard', 'plugin-usage-tracker' ); ?></h1>
+					<p class="put-description">
+						<?php esc_html_e( 'Run a scan to surface which installed plugins appear active, inactive, or unclear based on file, content, and registration signals.', 'plugin-usage-tracker' ); ?>
+					</p>
+				</div>
 
-			<div class="put-actions">
-				<a href="<?php echo esc_url( admin_url( 'tools.php?page=' . self::MENU_SLUG . '&put_action=scan&_wpnonce=' . wp_create_nonce( 'put_scan' ) ) ); ?>" class="button button-primary">
-					<?php esc_html_e( 'Run Scan', 'plugin-usage-tracker' ); ?>
-				</a>
+				<div class="put-hero-actions">
+					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="put-scan-form">
+						<input type="hidden" name="action" value="put_run_scan" />
+						<?php wp_nonce_field( 'put_run_scan' ); ?>
+						<button type="submit" class="button button-primary button-hero">
+							<?php esc_html_e( 'Run Scan', 'plugin-usage-tracker' ); ?>
+						</button>
+					</form>
+				</div>
 			</div>
 
-			<div class="put-results">
-				<p><?php esc_html_e( 'No scan results yet. Run a scan to get started.', 'plugin-usage-tracker' ); ?></p>
-			</div>
+			<?php $this->render_notices(); ?>
+
+			<?php if ( empty( $results ) || empty( $results['plugins'] ) ) : ?>
+				<div class="put-empty-state">
+					<h2><?php esc_html_e( 'No scan results yet', 'plugin-usage-tracker' ); ?></h2>
+					<p>
+						<?php esc_html_e( 'Start with a scan to collect plugin signals. The first pass focuses on static code analysis and content usage checks.', 'plugin-usage-tracker' ); ?>
+					</p>
+				</div>
+			<?php else : ?>
+				<div class="put-summary-grid">
+					<?php
+					$this->render_summary_card( __( 'Total plugins', 'plugin-usage-tracker' ), isset( $summary['total'] ) ? absint( $summary['total'] ) : 0 );
+					$this->render_summary_card( __( 'Likely used', 'plugin-usage-tracker' ), isset( $summary['likely-used'] ) ? absint( $summary['likely-used'] ) : 0 );
+					$this->render_summary_card( __( 'Possibly unused', 'plugin-usage-tracker' ), isset( $summary['possibly-unused'] ) ? absint( $summary['possibly-unused'] ) : 0 );
+					$this->render_summary_card( __( 'Likely unused', 'plugin-usage-tracker' ), isset( $summary['likely-unused'] ) ? absint( $summary['likely-unused'] ) : 0 );
+					?>
+				</div>
+
+				<div class="put-results">
+					<div class="put-results-header">
+						<div>
+							<h2><?php esc_html_e( 'Scan results', 'plugin-usage-tracker' ); ?></h2>
+							<?php if ( ! empty( $results['generated_at'] ) ) : ?>
+								<p class="put-results-meta">
+									<?php
+									printf(
+										/* translators: %s = date string */
+										esc_html__( 'Last scanned %s', 'plugin-usage-tracker' ),
+										esc_html( (string) $results['generated_at'] )
+									);
+									?>
+								</p>
+							<?php endif; ?>
+						</div>
+					</div>
+					<?php
+					$table = new ResultsTable( $results, $this->results_store );
+					$table->prepare_items();
+					$table->display();
+					?>
+				</div>
+			<?php endif; ?>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Render admin notices.
+	 *
+	 * @return void
+	 */
+	private function render_notices(): void {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only redirect notice flag.
+		$notice = isset( $_GET['put_notice'] ) ? sanitize_key( wp_unslash( $_GET['put_notice'] ) ) : '';
+
+		if ( '' === $notice ) {
+			return;
+		}
+
+		$messages = array(
+			'scan_complete'    => __( 'Scan completed successfully.', 'plugin-usage-tracker' ),
+			'override_added'   => __( 'The plugin has been marked as needed.', 'plugin-usage-tracker' ),
+			'override_removed' => __( 'The manual override was removed.', 'plugin-usage-tracker' ),
+		);
+
+		if ( ! isset( $messages[ $notice ] ) ) {
+			return;
+		}
+
+		printf(
+			'<div class="notice notice-success is-dismissible"><p>%s</p></div>',
+			esc_html( $messages[ $notice ] )
+		);
+	}
+
+	/**
+	 * Render a summary card.
+	 *
+	 * @param string $label Label.
+	 * @param int    $value Value.
+	 * @return void
+	 */
+	private function render_summary_card( string $label, int $value ): void {
+		?>
+		<div class="put-summary-card">
+			<span class="put-summary-value"><?php echo esc_html( (string) $value ); ?></span>
+			<span class="put-summary-label"><?php echo esc_html( $label ); ?></span>
 		</div>
 		<?php
 	}

@@ -16,6 +16,7 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 // Remove all plugin options.
 delete_option( 'put_settings' );
 delete_option( 'put_scan_results' );
+delete_option( 'put_scan_history' );
 delete_option( 'put_plugin_overrides' );
 delete_option( 'put_activated_at' );
 

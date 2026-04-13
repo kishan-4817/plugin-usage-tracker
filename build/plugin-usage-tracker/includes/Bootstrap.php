@@ -7,6 +7,10 @@
 
 namespace PluginUsageTracker;
 
+use PluginUsageTracker\Admin\AdminPage;
+use PluginUsageTracker\CLI\Command as CliCommand;
+use PluginUsageTracker\Data\SettingsStore;
+
 /**
  * Bootstrap
  *
@@ -47,16 +51,11 @@ final class Bootstrap {
 	 * @return void
 	 */
 	public static function activate(): void {
+		$settings_store = new SettingsStore();
+
 		// Set default options on first activation.
 		if ( false === get_option( 'put_settings' ) ) {
-			update_option(
-				'put_settings',
-				array(
-					'exclude_plugins'     => array(),
-					'retain_results_days' => 30,
-					'show_likely_used'    => false,
-				)
-			);
+			$settings_store->update( SettingsStore::defaults() );
 		}
 
 		// Store activation timestamp.
@@ -84,8 +83,23 @@ final class Bootstrap {
 
 		// Admin-only hooks.
 		if ( is_admin() ) {
-			$admin = new Admin\AdminPage();
+			$admin = new AdminPage();
 			$admin->register();
+		}
+
+		if ( defined( 'WP_CLI' ) && WP_CLI ) {
+			$this->register_cli();
+		}
+	}
+
+	/**
+	 * Register WP-CLI commands.
+	 *
+	 * @return void
+	 */
+	private function register_cli(): void {
+		if ( class_exists( '\WP_CLI' ) ) {
+			\WP_CLI::add_command( 'unused-plugins', new CliCommand() );
 		}
 	}
 
