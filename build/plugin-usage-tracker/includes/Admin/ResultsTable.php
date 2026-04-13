@@ -8,6 +8,7 @@
 namespace PluginUsageTracker\Admin;
 
 use PluginUsageTracker\Data\ResultsStore;
+use PluginUsageTracker\Data\SettingsStore;
 
 if ( ! class_exists( 'WP_List_Table' ) ) {
 	require_once ABSPATH . 'wp-admin/includes/class-wp-list-table.php';
@@ -33,6 +34,13 @@ final class ResultsTable extends \WP_List_Table {
 	private ResultsStore $results_store;
 
 	/**
+	 * Settings store.
+	 *
+	 * @var SettingsStore
+	 */
+	private SettingsStore $settings_store;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param array<string, mixed> $results Scan payload.
@@ -47,8 +55,9 @@ final class ResultsTable extends \WP_List_Table {
 			)
 		);
 
-		$this->results       = $results;
-		$this->results_store = $results_store;
+		$this->results        = $results;
+		$this->results_store  = $results_store;
+		$this->settings_store = new SettingsStore();
 	}
 
 	/**
@@ -57,7 +66,19 @@ final class ResultsTable extends \WP_List_Table {
 	 * @return void
 	 */
 	public function prepare_items(): void {
-		$items = isset( $this->results['plugins'] ) && is_array( $this->results['plugins'] ) ? array_values( $this->results['plugins'] ) : array();
+		$items    = isset( $this->results['plugins'] ) && is_array( $this->results['plugins'] ) ? array_values( $this->results['plugins'] ) : array();
+		$settings = $this->settings_store->all();
+
+		if ( empty( $settings['show_likely_used'] ) ) {
+			$items = array_values(
+				array_filter(
+					$items,
+					static function ( array $item ): bool {
+						return 'likely-used' !== ( isset( $item['confidence_label'] ) ? (string) $item['confidence_label'] : '' );
+					}
+				)
+			);
+		}
 
 		$this->items = $items;
 

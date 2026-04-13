@@ -61,6 +61,18 @@ final class SettingsStore {
 	 * @return void
 	 */
 	public function update( array $settings ): void {
+		$normalized = $this->sanitize( $settings );
+
+		update_option( self::OPTION_KEY, $normalized );
+	}
+
+	/**
+	 * Normalize raw settings input.
+	 *
+	 * @param array<string, mixed> $settings Raw settings.
+	 * @return array<string, mixed>
+	 */
+	public function sanitize( array $settings ): array {
 		$normalized                        = wp_parse_args( $settings, self::defaults() );
 		$normalized['exclude_plugins']     = array_values(
 			array_filter(
@@ -71,7 +83,7 @@ final class SettingsStore {
 		$normalized['show_likely_used']    = ! empty( $normalized['show_likely_used'] );
 		$normalized['enable_cli']          = ! empty( $normalized['enable_cli'] );
 
-		update_option( self::OPTION_KEY, $normalized );
+		return $normalized;
 	}
 
 	/**

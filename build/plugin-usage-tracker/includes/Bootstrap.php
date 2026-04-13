@@ -8,6 +8,7 @@
 namespace PluginUsageTracker;
 
 use PluginUsageTracker\Admin\AdminPage;
+use PluginUsageTracker\Admin\SettingsPage;
 use PluginUsageTracker\CLI\Command as CliCommand;
 use PluginUsageTracker\Data\SettingsStore;
 
@@ -85,9 +86,14 @@ final class Bootstrap {
 		if ( is_admin() ) {
 			$admin = new AdminPage();
 			$admin->register();
+
+			$settings_page = new SettingsPage();
+			$settings_page->register();
 		}
 
-		if ( defined( 'WP_CLI' ) && WP_CLI ) {
+		$settings = ( new SettingsStore() )->all();
+
+		if ( defined( 'WP_CLI' ) && WP_CLI && ! empty( $settings['enable_cli'] ) ) {
 			$this->register_cli();
 		}
 	}

@@ -8,6 +8,7 @@
 namespace PluginUsageTracker\Admin;
 
 use PluginUsageTracker\Data\ResultsStore;
+use PluginUsageTracker\Data\SettingsStore;
 use PluginUsageTracker\Scanner\PluginScanner;
 
 /**
@@ -33,6 +34,13 @@ final class AdminPage {
 	private ResultsStore $results_store;
 
 	/**
+	 * Settings store.
+	 *
+	 * @var SettingsStore
+	 */
+	private SettingsStore $settings_store;
+
+	/**
 	 * Scanner.
 	 *
 	 * @var PluginScanner
@@ -43,8 +51,9 @@ final class AdminPage {
 	 * Constructor.
 	 */
 	public function __construct() {
-		$this->results_store = new ResultsStore();
-		$this->scanner       = new PluginScanner();
+		$this->results_store  = new ResultsStore();
+		$this->settings_store = new SettingsStore();
+		$this->scanner        = new PluginScanner();
 	}
 
 	/**
@@ -57,6 +66,7 @@ final class AdminPage {
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 		add_action( 'admin_post_put_run_scan', array( $this, 'handle_run_scan' ) );
 		add_action( 'admin_post_put_toggle_override', array( $this, 'handle_toggle_override' ) );
+		add_action( 'admin_post_put_export_results', array( $this, 'handle_export_results' ) );
 	}
 
 	/**
@@ -81,7 +91,7 @@ final class AdminPage {
 	 * @return void
 	 */
 	public function enqueue_assets( string $hook_suffix ): void {
-		if ( 'tools_page_' . self::MENU_SLUG !== $hook_suffix ) {
+		if ( 'tools_page_' . self::MENU_SLUG !== $hook_suffix && 'tools_page_' . SettingsPage::MENU_SLUG !== $hook_suffix ) {
 			return;
 		}
 
@@ -161,6 +171,34 @@ final class AdminPage {
 	}
 
 	/**
+	 * Export results.
+	 *
+	 * @return void
+	 */
+	public function handle_export_results(): void {
+		if ( ! current_user_can( self::CAPABILITY ) ) {
+			wp_die( esc_html__( 'You do not have permission to export results.', 'plugin-usage-tracker' ) );
+		}
+
+		$format = isset( $_GET['format'] ) ? sanitize_key( wp_unslash( $_GET['format'] ) ) : 'json';
+		check_admin_referer( 'put_export_results_' . $format );
+
+		$payload = $this->results_store->get_latest_scan();
+		$rows    = $this->results_store->flatten_payload( $payload );
+
+		if ( empty( $payload ) ) {
+			wp_die( esc_html__( 'No scan results available to export.', 'plugin-usage-tracker' ) );
+		}
+
+		if ( 'csv' === $format ) {
+			$this->send_csv_export( $rows );
+			return;
+		}
+
+		$this->send_json_export( $payload );
+	}
+
+	/**
 	 * Render the page.
 	 *
 	 * @return void
@@ -170,8 +208,28 @@ final class AdminPage {
 			wp_die( esc_html__( 'You do not have permission to view this page.', 'plugin-usage-tracker' ) );
 		}
 
-		$results = $this->results_store->get_latest_scan();
-		$summary = isset( $results['summary'] ) && is_array( $results['summary'] ) ? $results['summary'] : array();
+		$results         = $this->results_store->get_latest_scan();
+		$summary         = isset( $results['summary'] ) && is_array( $results['summary'] ) ? $results['summary'] : array();
+		$export_json_url = wp_nonce_url(
+			add_query_arg(
+				array(
+					'action' => 'put_export_results',
+					'format' => 'json',
+				),
+				admin_url( 'admin-post.php' )
+			),
+			'put_export_results_json'
+		);
+		$export_csv_url  = wp_nonce_url(
+			add_query_arg(
+				array(
+					'action' => 'put_export_results',
+					'format' => 'csv',
+				),
+				admin_url( 'admin-post.php' )
+			),
+			'put_export_results_csv'
+		);
 		?>
 		<div class="wrap put-wrap">
 			<div class="put-hero">
@@ -191,6 +249,10 @@ final class AdminPage {
 							<?php esc_html_e( 'Run Scan', 'plugin-usage-tracker' ); ?>
 						</button>
 					</form>
+					<div class="put-export-actions">
+						<a class="button" href="<?php echo esc_url( $export_json_url ); ?>"><?php esc_html_e( 'Export JSON', 'plugin-usage-tracker' ); ?></a>
+						<a class="button" href="<?php echo esc_url( $export_csv_url ); ?>"><?php esc_html_e( 'Export CSV', 'plugin-usage-tracker' ); ?></a>
+					</div>
 				</div>
 			</div>
 
@@ -237,6 +299,10 @@ final class AdminPage {
 					?>
 				</div>
 			<?php endif; ?>
+
+			<div class="put-settings-link">
+				<a href="<?php echo esc_url( menu_page_url( SettingsPage::MENU_SLUG, false ) ); ?>"><?php esc_html_e( 'Open settings', 'plugin-usage-tracker' ); ?></a>
+			</div>
 		</div>
 		<?php
 	}
@@ -284,5 +350,49 @@ final class AdminPage {
 			<span class="put-summary-label"><?php echo esc_html( $label ); ?></span>
 		</div>
 		<?php
+	}
+
+	/**
+	 * Send JSON export.
+	 *
+	 * @param array<string, mixed> $payload Results payload.
+	 * @return void
+	 */
+	private function send_json_export( array $payload ): void {
+		nocache_headers();
+		header( 'Content-Type: application/json; charset=' . get_option( 'blog_charset' ) );
+		header( 'Content-Disposition: attachment; filename=plugin-usage-tracker-results.json' );
+		echo wp_json_encode( $payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES );
+		exit;
+	}
+
+	/**
+	 * Send CSV export.
+	 *
+	 * @param array<int, array<string, mixed>> $rows Export rows.
+	 * @return void
+	 */
+	private function send_csv_export( array $rows ): void {
+		nocache_headers();
+		header( 'Content-Type: text/csv; charset=' . get_option( 'blog_charset' ) );
+		header( 'Content-Disposition: attachment; filename=plugin-usage-tracker-results.csv' );
+
+		$handle = fopen( 'php://output', 'w' );
+
+		if ( false === $handle ) {
+			wp_die( esc_html__( 'Unable to open export output.', 'plugin-usage-tracker' ) );
+		}
+
+		if ( ! empty( $rows ) ) {
+			fputcsv( $handle, array_keys( $rows[0] ) );
+
+			foreach ( $rows as $row ) {
+				fputcsv( $handle, $row );
+			}
+		}
+
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Temp output stream.
+		fclose( $handle );
+		exit;
 	}
 }

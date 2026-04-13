@@ -66,6 +66,36 @@ final class ResultsStore {
 	}
 
 	/**
+	 * Flatten a payload into exportable rows.
+	 *
+	 * @param array<string, mixed> $payload Results payload.
+	 * @return array<int, array<string, mixed>>
+	 */
+	public function flatten_payload( array $payload ): array {
+		$rows  = array();
+		$items = isset( $payload['plugins'] ) && is_array( $payload['plugins'] ) ? $payload['plugins'] : array();
+
+		foreach ( $items as $item ) {
+			if ( ! is_array( $item ) ) {
+				continue;
+			}
+
+			$rows[] = array(
+				'name'             => isset( $item['name'] ) ? (string) $item['name'] : '',
+				'plugin_file'      => isset( $item['plugin_file'] ) ? (string) $item['plugin_file'] : '',
+				'status'           => ! empty( $item['is_active'] ) ? 'active' : 'inactive',
+				'confidence_label' => isset( $item['confidence_label'] ) ? (string) $item['confidence_label'] : '',
+				'confidence_score' => isset( $item['confidence_score'] ) ? (int) $item['confidence_score'] : 0,
+				'override_needed'  => ! empty( $item['override_needed'] ) ? 'yes' : 'no',
+				'version'          => isset( $item['version'] ) ? (string) $item['version'] : '',
+				'author'           => isset( $item['author'] ) ? (string) $item['author'] : '',
+			);
+		}
+
+		return $rows;
+	}
+
+	/**
 	 * Check whether a plugin is manually marked needed.
 	 *
 	 * @param string $plugin_file Plugin file.
