@@ -1,0 +1,60 @@
+<?xml version="1.0"?>
+<ruleset name="Plugin Usage Tracker">
+    <description>PHPCS ruleset for Plugin Usage Tracker. Enforces WordPress Coding Standards.</description>
+
+    <!-- What to scan -->
+    <file>.</file>
+
+    <!-- Exclude generated/vendor files -->
+    <exclude-pattern>*/vendor/*</exclude-pattern>
+    <exclude-pattern>*/node_modules/*</exclude-pattern>
+    <exclude-pattern>*/build/*</exclude-pattern>
+    <exclude-pattern>*/dist/*</exclude-pattern>
+
+    <!-- Show progress and sniff codes -->
+    <arg value="sp"/>
+    <arg name="colors"/>
+    <arg name="extensions" value="php"/>
+
+    <!-- Resolve bundled custom standards without relying on Composer state. -->
+    <config name="installed_paths" value="vendor/wp-coding-standards/wpcs,vendor/phpcompatibility/php-compatibility,vendor/phpcompatibility/phpcompatibility-wp,vendor/phpcompatibility/phpcompatibility-paragonie,vendor/phpcsstandards/phpcsextra,vendor/phpcsstandards/phpcsutils"/>
+
+    <!-- WordPress Coding Standards -->
+    <rule ref="WordPress">
+        <!-- Allow short array syntax [] -->
+        <exclude name="Universal.Arrays.DisallowShortArraySyntax"/>
+        <exclude name="WordPress.Files.FileName.NotHyphenatedLowercase"/>
+        <exclude name="WordPress.Files.FileName.InvalidClassFileName"/>
+    </rule>
+
+    <!-- Enforce WordPress extra rules -->
+    <rule ref="WordPress-Extra"/>
+
+    <!-- Enforce WordPress docs -->
+    <rule ref="WordPress-Docs"/>
+
+    <!-- PHP version compatibility -->
+    <rule ref="PHPCompatibilityWP"/>
+    <config name="minimum_supported_wp_version" value="6.0"/>
+    <config name="testVersion" value="7.4-"/>
+
+    <!-- Set text domain for i18n checks -->
+    <rule ref="WordPress.WP.I18n">
+        <properties>
+            <property name="text_domain">
+                <element value="plugin-usage-tracker"/>
+            </property>
+        </properties>
+    </rule>
+
+    <!-- Prefix check — all globals must be prefixed -->
+    <rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+        <properties>
+            <property name="prefixes">
+                <element value="plugin_usage_tracker"/>
+                <element value="put_"/>
+                <element value="PluginUsageTracker"/>
+            </property>
+        </properties>
+    </rule>
+</ruleset>

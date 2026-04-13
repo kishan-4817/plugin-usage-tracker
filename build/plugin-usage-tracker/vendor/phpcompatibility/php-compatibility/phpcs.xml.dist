@@ -1,0 +1,172 @@
+<?xml version="1.0"?>
+<ruleset name="PHPCS Coding Standards for PHPCompatibility">
+    <description>Check the code of the PHPCompatibility standard itself.</description>
+
+    <arg value="sp"/>
+    <arg name="extensions" value="php"/>
+
+    <file>.</file>
+
+    <!-- Exclude ForbiddenNames test case code. -->
+    <exclude-pattern>*/PHPCompatibility/Tests/Keywords/ForbiddenNames/*\.php</exclude-pattern>
+
+    <!-- Exclude Composer vendor directory. -->
+    <exclude-pattern>*/vendor/*</exclude-pattern>
+
+    <!-- Strip the filepaths down to the relevant bit. -->
+    <arg name="basepath" value="./"/>
+
+    <!-- Check up to 8 files simultanously. -->
+    <arg name="parallel" value="8"/>
+
+
+    <!--
+        PHP cross version compatibility ;-).
+    -->
+    <config name="testVersion" value="5.3-"/>
+    <rule ref="PHPCompatibility">
+        <!-- Exclude PHP constants back-filled by PHPCS 2.3.0+. -->
+        <exclude name="PHPCompatibility.Constants.NewConstants.t_trait_cFound"/>
+        <exclude name="PHPCompatibility.Constants.NewConstants.t_traitFound"/>
+        <exclude name="PHPCompatibility.Constants.NewConstants.t_insteadofFound"/>
+        <exclude name="PHPCompatibility.Constants.NewConstants.t_callableFound"/>
+        <exclude name="PHPCompatibility.Constants.NewConstants.t_finallyFound"/>
+        <exclude name="PHPCompatibility.Constants.NewConstants.t_yieldFound"/>
+        <exclude name="PHPCompatibility.Constants.NewConstants.t_ellipsisFound"/>
+        <exclude name="PHPCompatibility.Constants.NewConstants.t_powFound"/>
+        <exclude name="PHPCompatibility.Constants.NewConstants.t_pow_equalFound"/>
+        <exclude name="PHPCompatibility.Constants.NewConstants.t_coalesceFound"/>
+        <exclude name="PHPCompatibility.Constants.NewConstants.t_spaceshipFound"/>
+        <exclude name="PHPCompatibility.Constants.NewConstants.t_yield_fromFound"/>
+        <exclude name="PHPCompatibility.Constants.NewConstants.t_coalesce_equalFound"/>
+    </rule>
+
+    <!--
+        Minimal code style check.
+    -->
+    <rule ref="PSR2">
+        <!-- To address at a later point in time. -->
+        <exclude name="Generic.Files.LineLength.TooLong"/>
+
+        <!-- Ignoring a number of whitespace issues around blank lines. -->
+        <exclude name="Squiz.WhiteSpace.ControlStructureSpacing.SpacingAfterOpen"/>
+        <exclude name="Squiz.WhiteSpace.ControlStructureSpacing.SpacingBeforeClose"/>
+        <exclude name="Squiz.ControlStructures.ControlSignature.SpaceAfterCloseBrace"/>
+    </rule>
+
+    <rule ref="PSR1.Files.SideEffects.FoundWithSymbols">
+        <exclude-pattern>*/phpunit-bootstrap\.php</exclude-pattern>
+        <exclude-pattern>*/PHPCSAliases\.php</exclude-pattern>
+    </rule>
+
+    <!-- Check that variable names are in camelCaps. -->
+    <rule ref="Squiz.NamingConventions.ValidVariableName">
+        <exclude name="Squiz.NamingConventions.ValidVariableName.PrivateNoUnderscore"/>
+    </rule>
+
+    <!-- Check that function and method names are in camelCaps. -->
+    <rule ref="Generic.NamingConventions.CamelCapsFunctionName">
+        <properties>
+            <!-- Allow for two adjacent capital letters for acronyms. -->
+            <property name="strict" value="false"/>
+        </properties>
+    </rule>
+
+    <!-- PSR2 appears to ignore blank lines for superfluous whitespace and in several other places. Let's fix that. -->
+    <rule ref="Squiz.WhiteSpace.SuperfluousWhitespace">
+        <properties>
+            <property name="ignoreBlankLines" value="false"/>
+        </properties>
+    </rule>
+    <rule ref="Squiz.WhiteSpace.SuperfluousWhitespace.StartFile">
+        <severity>5</severity>
+    </rule>
+    <rule ref="Squiz.WhiteSpace.SuperfluousWhitespace.EndFile">
+        <severity>5</severity>
+    </rule>
+    <rule ref="Squiz.WhiteSpace.SuperfluousWhitespace.EmptyLines">
+        <severity>5</severity>
+    </rule>
+
+    <rule ref="Generic.PHP.LowerCaseType"/>
+    <rule ref="Generic.WhiteSpace.ArbitraryParenthesesSpacing"/>
+    <rule ref="PSR12.Classes.ClassInstantiation"/>
+    <rule ref="PSR12.Keywords.ShortFormTypeKeywords"/>
+    <rule ref="PSR12.Operators.OperatorSpacing"/>
+
+    <!-- Use normalized array indentation. -->
+    <rule ref="Generic.Arrays.ArrayIndent"/>
+    <rule ref="Squiz.Arrays.ArrayDeclaration"/>
+
+    <!-- Ignoring the Squiz indentation rules as normalized arrays are preferred. -->
+    <rule ref="Squiz.Arrays.ArrayDeclaration.KeyNotAligned">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Arrays.ArrayDeclaration.ValueNotAligned">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Arrays.ArrayDeclaration.CloseBraceNotAligned">
+        <severity>0</severity>
+    </rule>
+
+    <!-- Single and multi-line arrays are both allowed. -->
+    <rule ref="Squiz.Arrays.ArrayDeclaration.SingleLineNotAllowed">
+        <severity>0</severity>
+    </rule>
+    <rule ref="Squiz.Arrays.ArrayDeclaration.MultiLineNotAllowed">
+        <severity>0</severity>
+    </rule>
+
+    <!-- All nice and good, but too much of a fuss for the outer array of nested arrays. -->
+    <rule ref="Squiz.Arrays.ArrayDeclaration.DoubleArrowNotAligned">
+        <severity>0</severity>
+    </rule>
+
+    <!-- Align the equal operator in assignment blocks. -->
+    <rule ref="Generic.Formatting.MultipleStatementAlignment">
+        <properties>
+            <property name="maxPadding" value="25"/>
+        </properties>
+    </rule>
+
+	<rule ref="PEAR.Files.IncludingFile">
+        <exclude-pattern>*/phpunit-bootstrap\.php</exclude-pattern>
+	</rule>
+
+
+    <!--
+        Inline Documentation check.
+    -->
+    <rule ref="Generic.Commenting.DocComment">
+        <!-- Having a @see or @internal tag before the @param tags is fine. -->
+        <exclude name="Generic.Commenting.DocComment.ParamNotFirst"/>
+    </rule>
+
+    <!-- No need to be as strict about comment punctuation for the unit tests. -->
+    <rule ref="Generic.Commenting.DocComment.ShortNotCapital">
+        <exclude-pattern>*/PHPCompatibility/Tests/*\.php</exclude-pattern>
+        <exclude-pattern>*/PHPCompatibility/Util/Tests/*\.php</exclude-pattern>
+    </rule>
+
+
+    <rule ref="PEAR.Commenting">
+        <!-- Exclude PEAR specific tag requirements. -->
+        <exclude name="PEAR.Commenting.FileComment.MissingVersion" />
+        <exclude name="PEAR.Commenting.FileComment.MissingAuthorTag" />
+        <exclude name="PEAR.Commenting.FileComment.MissingCategoryTag" />
+        <exclude name="PEAR.Commenting.FileComment.MissingLicenseTag" />
+        <exclude name="PEAR.Commenting.FileComment.MissingLinkTag" />
+        <exclude name="PEAR.Commenting.ClassComment.MissingAuthorTag" />
+        <exclude name="PEAR.Commenting.ClassComment.MissingCategoryTag" />
+        <exclude name="PEAR.Commenting.ClassComment.MissingLicenseTag" />
+        <exclude name="PEAR.Commenting.ClassComment.MissingLinkTag" />
+        <exclude name="PEAR.Commenting.ClassComment.MissingPackageTag" />
+
+        <!-- Having a @see or @internal tag before the @category tag is fine. -->
+        <exclude name="PEAR.Commenting.ClassComment.CategoryTagOrder"/>
+
+        <!-- Using @since for class changelog demands multiple tags. -->
+        <exclude name="PEAR.Commenting.ClassComment.DuplicateSinceTag"/>
+    </rule>
+
+</ruleset>

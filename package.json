@@ -1,0 +1,24 @@
+{
+    "name": "plugin-usage-tracker",
+    "version": "0.1.0",
+    "description": "Detects unused or low-activity plugins installed on a WordPress site.",
+    "private": true,
+    "scripts": {
+        "lint:js": "eslint assets/js --ext .js,.jsx",
+        "lint:js:fix": "eslint assets/js --ext .js,.jsx --fix",
+        "lint:css": "stylelint assets/css/**/*.css",
+        "lint:css:fix": "stylelint assets/css/**/*.css --fix",
+        "lint:php": "composer lint",
+        "lint": "npm run lint:js && npm run lint:css && npm run lint:php",
+        "format": "prettier --write \"assets/**/*.{js,jsx,css}\"",
+        "format:check": "prettier --check \"assets/**/*.{js,jsx,css}\"",
+        "build": "node scripts/build.mjs"
+    },
+    "devDependencies": {
+        "@wordpress/eslint-plugin": "^22.0.0",
+        "@wordpress/stylelint-config": "^23.0.0",
+        "eslint": "^8.57.0",
+        "prettier": "^3.3.0",
+        "stylelint": "^16.0.0"
+    }
+}

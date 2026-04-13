@@ -1,0 +1,43 @@
+# ============================================================
+# Plugin Usage Tracker — .gitignore
+# ============================================================
+
+# Composer
+/vendor/
+
+# Node
+/node_modules/
+yarn.lock
+
+# Build output (add when you have a build step)
+/dist/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# PHP
+*.log
+
+# WordPress local dev (if WP lives in the same repo)
+/wp-config.php
+/wp-content/uploads/
+
+# Environment files
+.env
+.env.local
+
+# PHPCS cache
+.phpcs-cache
+.phpcs.cache
+
+# ESLint cache
+.eslintcache
